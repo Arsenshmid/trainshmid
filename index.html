@@ -12,7 +12,7 @@
 <style>
 :root{
   --bg:#0e1116; --card:#171c24; --card2:#1f2632; --line:#2a3342;
-  --text:#e9edf3; --muted:#8b96a5; --green:#34d399; --green-d:#10b981; --red:#f87171;
+  --text:#e9edf3; --muted:#8b96a5; --green:#34d399; --green-d:#10b981; --red:#f87171; --amber:#fbbf24;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
@@ -47,14 +47,17 @@ h3.flexhead{display:flex;justify-content:space-between;align-items:center}
 .dname{font-size:18px;font-weight:700}
 .dsub{font-size:13px;color:var(--muted)}
 .dprog{font-size:12px;color:var(--green);margin-top:6px;min-height:16px}
+.dprog .amber{color:var(--amber)}
 .exitem{appearance:none;-webkit-appearance:none;width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px;color:var(--text);font-size:16px;cursor:pointer;font-family:inherit;transition:transform .06s ease}
 .exitem:active{transform:scale(.98)}
 .exitem.done{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.07)}
+.exitem.draft{border-color:rgba(251,191,36,.4)}
 .exitem.danger{border-color:rgba(248,113,113,.5)}
 .exitem.danger .exname{color:#fca5a5}
 .exnum{flex:0 0 auto;width:28px;height:28px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);font-weight:700}
 .exname{flex:1;min-width:0;overflow-wrap:anywhere}
-.exdone{flex:0 0 auto;font-size:13px;color:var(--green);font-weight:700;max-width:45%;text-align:right}
+.exdone{flex:0 0 auto;font-size:13px;color:var(--green);font-weight:700;max-width:42%;text-align:right}
+.exdraft{flex:0 0 auto;font-size:13px;color:var(--amber);font-weight:700;max-width:42%;text-align:right;overflow-wrap:anywhere}
 .back{appearance:none;-webkit-appearance:none;background:none;border:none;color:var(--green);font-size:16px;font-weight:600;padding:6px 0 12px;cursor:pointer;font-family:inherit}
 label{font-size:14px;color:var(--muted);display:block;margin-bottom:6px}
 input[type=number],textarea{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font-size:17px;font-family:inherit;outline:none}
@@ -89,7 +92,6 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .jrow:last-child{border-bottom:none}
 .jex{flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere}
 .jsets{flex:0 0 auto;font-size:14px;color:var(--muted);font-weight:700}
-/* ===== ПАНЕЛЬ ОТДЫХА ===== */
 #restBar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#182234;border:1px solid var(--green-d);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;transform:translateY(150%);transition:transform .3s ease,background .3s ease;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 #restBar.show{transform:none}
 #restBar.done{background:rgba(16,185,129,.18)}
@@ -123,6 +125,11 @@ body.resting #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
   <!-- ГЛАВНАЯ -->
   <section id="s-home" class="screen active">
     <h2 id="homeDate"></h2>
+    <div class="card" id="resumeCard" style="display:none;border-color:rgba(251,191,36,.45)">
+      <h3 style="margin-top:0;color:var(--amber)">⏸ Незавершённая тренировка</h3>
+      <div id="resumeInfo" class="muted" style="font-size:14px;margin-bottom:12px"></div>
+      <button class="btn primary" id="btnResume">▶️ Продолжить</button>
+    </div>
     <div class="daygrid" id="homeDays"></div>
     <div class="card">
       <h3>Результаты сегодняшней тренировки</h3>
@@ -170,7 +177,7 @@ body.resting #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
     </div>
     <div class="row">
       <button class="btn primary" id="btnSaveEx" disabled>💾 Сохранить</button>
-      <button class="btn" id="btnCancelEx">Отмена</button>
+      <button class="btn" id="btnCancelEx">Выйти</button>
     </div>
     <div id="exAllTime" class="muted" style="margin-top:12px;font-size:14px;text-align:center"></div>
   </section>
@@ -190,7 +197,7 @@ body.resting #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
     <div class="row"><button class="btn" id="btnExportAll">📋 Скопировать весь журнал</button></div>
     <div id="journalList" style="margin-top:14px"></div>
     <button class="btn ghost" id="btnWipe" style="width:100%;margin-top:16px;color:var(--red);border-color:rgba(248,113,113,.4)">Очистить все данные</button>
-    <div class="hint">Данные хранятся только в этом браузере на телефоне. Периодически сохраняй копию журнала в заметки.</div>
+    <div class="hint">Данные хранятся в памяти браузера и переживают перезагрузку. Периодически сохраняй копию журнала в заметки — это бэкап.</div>
   </section>
 </main>
 
@@ -310,12 +317,31 @@ const PROGRAM = [
   ]}
 ];
 
-/* ==================== ХРАНИЛИЩЕ ==================== */
-const LS_REC = 'gymRecordsV1', LS_TAR = 'gymTargetsV1', LS_REST_ON = 'gymRestOnV1', LS_REST = 'gymRestV1';
+/* ==================== ХРАНИЛИЩЕ ====================
+   Всё состояние пишется в localStorage СРАЗУ при каждом изменении,
+   поэтому перезагрузка Safari ничего не стирает. */
+const LS_REC  = 'gymRecordsV1';   // сохранённые результаты
+const LS_TAR  = 'gymTargetsV1';   // цели повторений
+const LS_DRAFT= 'gymDraftsV1';    // черновики подходов (нажал "+ Подход", ещё не нажал "Сохранить")
+const LS_SESS = 'gymSessionV1';   // где остановился (день/упражнение)
+const LS_REST_ON = 'gymRestOnV1';
+const LS_REST = 'gymRestV1';
+
 function loadJSON(key, def){ try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function saveJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
 let records = loadJSON(LS_REC, []);
+let drafts  = loadJSON(LS_DRAFT, {}); /* имя упражнения -> [подходы] */
+
 function persist(){ saveJSON(LS_REC, records); renderAll(); }
+function saveDrafts(){
+  var clean = {}, has = false;
+  Object.keys(drafts).forEach(function(k){
+    if(drafts[k] && drafts[k].length){ clean[k] = drafts[k]; has = true; }
+  });
+  drafts = clean;
+  saveJSON(LS_DRAFT, clean);
+}
 function loadTargets(){ return loadJSON(LS_TAR, {}); }
 function saveTargets(t){ saveJSON(LS_TAR, t); }
 function targetFor(name){ var t = loadTargets(); var v = parseInt(t[name], 10); return v > 0 ? v : 30; }
@@ -335,9 +361,13 @@ function cmpDate(a, b){
   return (y1 !== y2) ? y1 - y2 : (m1 !== m2 ? m1 - m2 : d1 - d2);
 }
 function todayRecords(){ return records.filter(function(r){ return r.date === fmtDate(new Date()); }); }
+function dayById(id){
+  for(var i = 0; i < PROGRAM.length; i++){ if(PROGRAM[i].id === id) return PROGRAM[i]; }
+  return null;
+}
 
 /* ==================== ТАЙМЕР ОТДЫХА (1:45) ==================== */
-const REST_DEFAULT = 105; /* секунды: 1 мин 45 сек. Поменяй число, если нужен другой отдых */
+const REST_DEFAULT = 105; /* секунды: 1 мин 45 сек */
 let rest = { active:false, end:0, total:REST_DEFAULT };
 let restTick = null, restDoneTimer = null, audioCtx = null;
 
@@ -421,19 +451,62 @@ function renderRest(){
   document.title = '⏱ ' + fmtSec(remain) + ' — отдых';
 }
 
-/* ==================== ЭКРАНЫ ==================== */
+/* ==================== ЭКРАНЫ И СЕССИЯ ==================== */
 let curDay = null, curEx = null, curSets = [];
+
+function currentScreen(){
+  var el = document.querySelector('.screen.active');
+  return el ? el.id.slice(2) : 'home';
+}
+function saveSession(){
+  var s = currentScreen();
+  saveJSON(LS_SESS, {
+    dayId: (s === 'day' || s === 'ex') && curDay ? curDay.id : null,
+    ex: s === 'ex' ? curEx : null
+  });
+}
+function syncDraft(){
+  if(!curEx) return;
+  if(curSets.length) drafts[curEx] = curSets.slice();
+  else delete drafts[curEx];
+  saveDrafts();
+}
 
 function show(id){
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('s-' + id).classList.add('active');
   window.scrollTo(0, 0);
   renderAll();
+  saveSession();
 }
 function renderAll(){ renderHome(); renderDay(); renderExercise(); renderStats(); renderJournal(); }
 
 function renderHome(){
   document.getElementById('homeDate').textContent = 'Сегодня — ' + humanDate(new Date());
+
+  /* Карточка продолжения тренировки */
+  var draftDays = [];
+  PROGRAM.forEach(function(day){
+    var c = 0;
+    day.exercises.forEach(function(n){ if((drafts[n] || []).length) c++; });
+    if(c) draftDays.push({ day: day, count: c });
+  });
+  var rc = document.getElementById('resumeCard');
+  if(draftDays.length){
+    rc.style.display = 'block';
+    var sess = loadJSON(LS_SESS, null);
+    var pick = draftDays[0];
+    if(sess && sess.dayId){
+      for(var i = 0; i < draftDays.length; i++){
+        if(draftDays[i].day.id === sess.dayId){ pick = draftDays[i]; break; }
+      }
+    }
+    document.getElementById('resumeInfo').textContent = pick.day.name + ' · упражнений в процессе: ' + pick.count;
+    document.getElementById('btnResume').onclick = function(){ openDay(pick.day); };
+  } else {
+    rc.style.display = 'none';
+  }
+
   var t = todayRecords();
   var wrap = document.getElementById('homeDays');
   wrap.innerHTML = '';
@@ -441,14 +514,21 @@ function renderHome(){
     var doneSet = {};
     t.forEach(function(r){ if(r.day === day.name) doneSet[r.exercise] = 1; });
     var done = Object.keys(doneSet).length;
+    var dcount = 0;
+    day.exercises.forEach(function(n){ if((drafts[n] || []).length) dcount++; });
+    var prog = '';
+    if(done) prog += '✓ Выполнено ' + done + ' из ' + day.exercises.length;
+    if(dcount) prog += (prog ? ' · ' : '') + '⏸ ' + dcount + ' в процессе';
+    if(!prog) prog = 'Начать тренировку →';
     var b = document.createElement('button');
     b.className = 'daycard';
     b.innerHTML = '<div class="dname">' + esc(day.name) + '</div>'
       + '<div class="dsub">' + day.exercises.length + ' упражнений</div>'
-      + '<div class="dprog">' + (done ? '✓ Выполнено ' + done + ' из ' + day.exercises.length : 'Начать тренировку →') + '</div>';
+      + '<div class="dprog">' + prog.replace(/⏸[^·]*/g, function(m){ return '<span class="amber">' + m.trim() + '</span>'; }) + '</div>';
     b.onclick = function(){ openDay(day); };
     wrap.appendChild(b);
   });
+
   var info = document.getElementById('todayInfo');
   if(t.length){
     var tot = 0; t.forEach(function(r){ tot += r.total; });
@@ -470,19 +550,27 @@ function renderDay(){
   var t = todayRecords().filter(function(r){ return r.day === curDay.name; });
   var doneMap = {};
   t.forEach(function(r){ (doneMap[r.exercise] = doneMap[r.exercise] || []).push(r); });
+  var draftCount = 0;
+  curDay.exercises.forEach(function(n){ if((drafts[n] || []).length) draftCount++; });
   document.getElementById('dayProgress').textContent =
-    'Выполнено сегодня: ' + Object.keys(doneMap).length + ' из ' + curDay.exercises.length;
+    'Выполнено сегодня: ' + Object.keys(doneMap).length + ' из ' + curDay.exercises.length +
+    (draftCount ? ' · ⏸ в процессе: ' + draftCount : '');
   var list = document.getElementById('exList');
   list.innerHTML = '';
   curDay.exercises.forEach(function(name, i){
     var recs = doneMap[name] || [];
+    var dr = drafts[name] || [];
+    if(dr.length) draftCount++;
     var item = document.createElement('button');
-    item.className = 'exitem' + (recs.length ? ' done' : '') + (name.indexOf('DANGER') >= 0 ? ' danger' : '');
+    item.className = 'exitem' + (recs.length ? ' done' : '') + (dr.length ? ' draft' : '') + (name.indexOf('DANGER') >= 0 ? ' danger' : '');
     var right = '';
     if(recs.length){
       var setsStr = recs.map(function(r){ return r.sets; }).join(' · ');
       var tot = recs.reduce(function(s, r){ return s + r.total; }, 0);
-      right = '<span class="exdone">✓ ' + esc(setsStr) + ' (' + tot + ')</span>';
+      right += '<span class="exdone">✓ ' + esc(setsStr) + ' (' + tot + ')</span>';
+    }
+    if(dr.length){
+      right += '<span class="exdraft">⏸ ' + esc(dr.join('+')) + '</span>';
     }
     item.innerHTML = '<span class="exnum">' + (i + 1) + '</span><span class="exname">' + esc(name) + '</span>' + right;
     item.onclick = function(){ openExercise(name); };
@@ -490,8 +578,9 @@ function renderDay(){
   });
 }
 
-function openExercise(name){
-  curEx = name; curSets = [];
+function openExercise(name, preset){
+  curEx = name;
+  curSets = preset ? preset.slice() : (drafts[name] ? drafts[name].slice() : []);
   document.getElementById('targetInput').value = targetFor(name);
   document.getElementById('repInput').value = '';
   show('ex');
@@ -513,7 +602,11 @@ function renderExercise(){
       var chip = document.createElement('span');
       chip.className = 'chip';
       chip.innerHTML = v + '<button class="chipx" aria-label="удалить подход">×</button>';
-      chip.querySelector('.chipx').onclick = function(){ curSets.splice(idx, 1); renderExercise(); };
+      chip.querySelector('.chipx').onclick = function(){
+        curSets.splice(idx, 1);
+        syncDraft(); /* удаление тоже сразу сохраняется */
+        renderExercise();
+      };
       chipWrap.appendChild(chip);
     });
   }
@@ -533,10 +626,10 @@ function addSet(){
   var v = parseInt(inp.value, 10);
   if(!v || v <= 0){ toast('Введи число больше 0'); return; }
   curSets.push(v);
+  syncDraft(); /* <-- подход сохраняется в память телефона СРАЗУ */
   inp.value = '';
   inp.focus();
   renderExercise();
-  /* Автотаймер отдыха после каждого подхода */
   if(restEnabled()){ startRest(REST_DEFAULT); }
   else { ensureAudio(); }
 }
@@ -551,15 +644,21 @@ function saveExercise(){
     sets: curSets.join('+'), total: curSets.reduce(function(s, v){ return s + v; }, 0)
   });
   curSets = [];
+  if(curEx) delete drafts[curEx];
+  saveDrafts();
+  curEx = null;
   persist();
   toast('Сохранено ✓');
   show('day');
 }
 
+/* Выход из упражнения больше НИЧЕГО не удаляет — черновик остаётся */
 function backFromExercise(){
-  if(curSets.length && !confirm('Подходы не сохранены. Выйти?')) return;
-  curSets = [];
+  var had = curSets.length > 0;
+  syncDraft();
+  curEx = null; curSets = [];
   show('day');
+  if(had) toast('⏸ Подходы сохранены в черновик');
 }
 
 /* ==================== СТАТИСТИКА ==================== */
@@ -736,7 +835,12 @@ document.getElementById('btnModalCopy').onclick = function(){
 document.getElementById('btnWipe').onclick = function(){
   if(!confirm('Удалить ВСЮ историю тренировок?')) return;
   if(!confirm('Точно? Это нельзя отменить.')) return;
-  records = []; persist(); toast('Данные удалены');
+  records = [];
+  drafts = {}; saveDrafts();
+  saveJSON(LS_SESS, null);
+  persist();
+  toast('Данные удалены');
+  show('home');
 };
 document.getElementById('restToggle').onclick = function(){ setRestEnabled(!restEnabled()); };
 document.getElementById('restPlus').onclick = function(){
@@ -760,7 +864,25 @@ document.addEventListener('visibilitychange', function(){
   if(!document.hidden && rest.active) renderRest();
 });
 
-show('home');
+/* Восстановление сессии при открытии сайта */
+(function restoreSession(){
+  var sess = loadJSON(LS_SESS, null);
+  var day = null;
+  if(sess && sess.dayId){ day = dayById(sess.dayId); }
+  if(day){
+    curDay = day;
+    if(sess.ex && (drafts[sess.ex] || []).length){
+      openExercise(sess.ex, drafts[sess.ex]); /* возвращаемся прямо в упражнение с подходами */
+      toast('↩️ Восстановлено — продолжай упражнение');
+      return;
+    }
+    show('day');
+    toast('↩️ Тренировка восстановлена');
+    return;
+  }
+  show('home');
+  if(Object.keys(drafts).length) toast('⏸ Есть незавершённые подходы');
+})();
 </script>
 </body>
 </html>
