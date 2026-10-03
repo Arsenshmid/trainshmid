@@ -23,11 +23,13 @@ header{position:sticky;top:0;z-index:20;background:rgba(14,17,22,.9);-webkit-bac
 h1{font-size:19px;font-weight:700}
 .hsub{font-size:12px;color:var(--muted)}
 main{max-width:640px;margin:0 auto;padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
+body.resting main{padding-bottom:calc(140px + env(safe-area-inset-bottom))}
 .screen{display:none}
 .screen.active{display:block;animation:fade .18s ease}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 h2{font-size:21px;margin:4px 0 14px}
 h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 8px}
+h3.flexhead{display:flex;justify-content:space-between;align-items:center}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
 .muted{color:var(--muted)}
 .subline{margin:-6px 0 14px;font-size:14px;color:var(--muted)}
@@ -62,6 +64,8 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .setrow{display:flex;gap:10px;margin-top:6px}
 .setrow input{flex:1;min-width:0}
 .setrow .btn{flex:0 0 auto}
+.mini{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:999px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-transform:none;letter-spacing:0}
+.mini.off{color:var(--muted)}
 #setChips{display:flex;flex-wrap:wrap;gap:8px;min-height:32px;margin-bottom:8px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--green-d);color:#062018;font-weight:700;border-radius:999px;padding:6px 8px 6px 13px;font-size:15px}
 .chipx{appearance:none;-webkit-appearance:none;border:none;cursor:pointer;background:rgba(0,0,0,.18);color:inherit;width:22px;height:22px;border-radius:50%;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
@@ -85,8 +89,20 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .jrow:last-child{border-bottom:none}
 .jex{flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere}
 .jsets{flex:0 0 auto;font-size:14px;color:var(--muted);font-weight:700}
+/* ===== ПАНЕЛЬ ОТДЫХА ===== */
+#restBar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#182234;border:1px solid var(--green-d);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;transform:translateY(150%);transition:transform .3s ease,background .3s ease;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#restBar.show{transform:none}
+#restBar.done{background:rgba(16,185,129,.18)}
+#restFill{position:absolute;left:0;top:0;bottom:0;width:100%;background:rgba(52,211,153,.14);transition:width .25s linear}
+.restInfo{flex:1;min-width:0;position:relative}
+.restLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.restTime{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.restBtn{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;padding:9px 11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;position:relative}
+.restBtn:active{transform:scale(.95)}
+.restBtn.skip{color:var(--red);border-color:rgba(248,113,113,.35)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#263043;color:var(--text);padding:12px 18px;border-radius:999px;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:70;box-shadow:0 8px 30px rgba(0,0,0,.4);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+body.resting #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:none;align-items:flex-end;justify-content:center}
 #modal.open{display:flex}
 .modal-card{background:var(--card);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:18px;width:100%;max-width:640px;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
@@ -143,7 +159,7 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
     <div class="card">
       <label for="targetInput">Цель повторений</label>
       <input type="number" id="targetInput" inputmode="numeric" min="1">
-      <h3>Подходы</h3>
+      <h3 class="flexhead">Подходы <button class="mini" id="restToggle">⏱ Автоотдых: вкл</button></h3>
       <div id="setChips"></div>
       <div class="setrow">
         <input type="number" id="repInput" inputmode="numeric" min="1" placeholder="Сколько повторов сделал">
@@ -178,6 +194,17 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
   </section>
 </main>
 
+<!-- ПАНЕЛЬ ОТДЫХА -->
+<div id="restBar">
+  <div id="restFill"></div>
+  <div class="restInfo">
+    <div class="restLabel" id="restLabel">Отдых</div>
+    <div class="restTime" id="restTime">1:45</div>
+  </div>
+  <button class="restBtn" id="restPlus">+30 сек</button>
+  <button class="restBtn skip" id="restSkip">Пропустить</button>
+</div>
+
 <div id="toast"></div>
 
 <div id="modal">
@@ -193,8 +220,7 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 
 <script>
 'use strict';
-/* ==================== ПРОГРАММА ТРЕНИРОВОК ====================
-   Названия и веса можно менять прямо здесь — сайт обновится. */
+/* ==================== ПРОГРАММА ТРЕНИРОВОК ==================== */
 const PROGRAM = [
   { id:'grud', name:'ГРУДЬ', exercises:[
     'Плечи разведение (жим|развед.) (15*2кг)',
@@ -285,7 +311,7 @@ const PROGRAM = [
 ];
 
 /* ==================== ХРАНИЛИЩЕ ==================== */
-const LS_REC = 'gymRecordsV1', LS_TAR = 'gymTargetsV1';
+const LS_REC = 'gymRecordsV1', LS_TAR = 'gymTargetsV1', LS_REST_ON = 'gymRestOnV1', LS_REST = 'gymRestV1';
 function loadJSON(key, def){ try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function saveJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
 let records = loadJSON(LS_REC, []);
@@ -310,6 +336,91 @@ function cmpDate(a, b){
 }
 function todayRecords(){ return records.filter(function(r){ return r.date === fmtDate(new Date()); }); }
 
+/* ==================== ТАЙМЕР ОТДЫХА (1:45) ==================== */
+const REST_DEFAULT = 105; /* секунды: 1 мин 45 сек. Поменяй число, если нужен другой отдых */
+let rest = { active:false, end:0, total:REST_DEFAULT };
+let restTick = null, restDoneTimer = null, audioCtx = null;
+
+function restEnabled(){ return loadJSON(LS_REST_ON, true); }
+function setRestEnabled(v){ saveJSON(LS_REST_ON, v); updateRestToggle(); }
+function updateRestToggle(){
+  var b = document.getElementById('restToggle');
+  b.textContent = '⏱ Автоотдых: ' + (restEnabled() ? 'вкл' : 'выкл');
+  b.classList.toggle('off', !restEnabled());
+}
+function ensureAudio(){
+  try{
+    if(!audioCtx){ var C = window.AudioContext || window.webkitAudioContext; if(C) audioCtx = new C(); }
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){}
+}
+function beep(times){
+  try{
+    if(!audioCtx) return;
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    var t0 = audioCtx.currentTime + 0.05;
+    for(var i = 0; i < times; i++){
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = (i === times - 1) ? 1320 : 880;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0); o.stop(t0 + 0.3);
+      t0 += 0.42;
+    }
+  }catch(e){}
+}
+function fmtSec(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
+function saveRest(){ saveJSON(LS_REST, rest); }
+
+function startRest(sec){
+  ensureAudio();
+  clearTimeout(restDoneTimer);
+  rest.active = true; rest.total = sec || REST_DEFAULT;
+  rest.end = Date.now() + rest.total * 1000;
+  saveRest();
+  if(!restTick) restTick = setInterval(renderRest, 250);
+  renderRest();
+}
+function stopRest(){
+  rest.active = false; rest.end = 0; saveRest();
+  clearInterval(restTick); restTick = null;
+  document.getElementById('restBar').classList.remove('show', 'done');
+  document.body.classList.remove('resting');
+  document.title = 'Мои тренировки';
+}
+function restFinished(){
+  rest.active = false; rest.end = 0; saveRest();
+  clearInterval(restTick); restTick = null;
+  beep(3);
+  if(navigator.vibrate){ try{ navigator.vibrate([300,120,300,120,300]); }catch(e){} }
+  var bar = document.getElementById('restBar');
+  bar.classList.add('done');
+  document.getElementById('restLabel').textContent = 'Отдых закончен';
+  document.getElementById('restTime').textContent = '💪 Готово';
+  document.getElementById('restFill').style.width = '0%';
+  document.title = 'Мои тренировки';
+  toast('💪 Отдых закончен — вперёд!');
+  restDoneTimer = setTimeout(function(){
+    bar.classList.remove('show', 'done');
+    document.body.classList.remove('resting');
+  }, 8000);
+}
+function renderRest(){
+  var bar = document.getElementById('restBar');
+  if(!rest.active){ return; }
+  var remain = (rest.end - Date.now()) / 1000;
+  if(remain <= 0){ restFinished(); return; }
+  bar.classList.add('show');
+  bar.classList.remove('done');
+  document.body.classList.add('resting');
+  document.getElementById('restLabel').textContent = 'Отдых';
+  document.getElementById('restTime').textContent = fmtSec(remain);
+  document.getElementById('restFill').style.width = Math.max(0, remain * 100 / rest.total) + '%';
+  document.title = '⏱ ' + fmtSec(remain) + ' — отдых';
+}
+
 /* ==================== ЭКРАНЫ ==================== */
 let curDay = null, curEx = null, curSets = [];
 
@@ -319,7 +430,6 @@ function show(id){
   window.scrollTo(0, 0);
   renderAll();
 }
-
 function renderAll(){ renderHome(); renderDay(); renderExercise(); renderStats(); renderJournal(); }
 
 function renderHome(){
@@ -426,6 +536,9 @@ function addSet(){
   inp.value = '';
   inp.focus();
   renderExercise();
+  /* Автотаймер отдыха после каждого подхода */
+  if(restEnabled()){ startRest(REST_DEFAULT); }
+  else { ensureAudio(); }
 }
 
 function saveExercise(){
@@ -625,6 +738,27 @@ document.getElementById('btnWipe').onclick = function(){
   if(!confirm('Точно? Это нельзя отменить.')) return;
   records = []; persist(); toast('Данные удалены');
 };
+document.getElementById('restToggle').onclick = function(){ setRestEnabled(!restEnabled()); };
+document.getElementById('restPlus').onclick = function(){
+  if(!rest.active) return;
+  rest.end += 30000; rest.total += 30;
+  saveRest(); renderRest();
+};
+document.getElementById('restSkip').onclick = stopRest;
+
+/* ==================== ИНИЦИАЛИЗАЦИЯ ==================== */
+updateRestToggle();
+(function initRest(){
+  var saved = loadJSON(LS_REST, null);
+  if(saved && saved.active && saved.end && saved.end > Date.now()){
+    rest = saved;
+    restTick = setInterval(renderRest, 250);
+    renderRest();
+  }
+})();
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && rest.active) renderRest();
+});
 
 show('home');
 </script>
