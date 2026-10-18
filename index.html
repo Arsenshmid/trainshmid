@@ -292,7 +292,7 @@ body.resting #toast{bottom:calc(100px + env(safe-area-inset-bottom))}
       </div>
       <div class="ringwrap">
         <svg class="bigring" viewBox="0 0 120 120"><circle class="rbg" cx="60" cy="60" r="52"/><circle class="rfg" id="ringFg" cx="60" cy="60" r="52"/></svg>
-        <div class="ringtxt"><b id="ringLeft">0</b><span id="ringSub">подходов осталось</span></div>
+        <div class="ringtxt"><b id="ringLeft">0</b><span id="ringSub">повторений осталось</span></div>
       </div>
       <div id="progText" class="progtext muted"></div>
     </div>
@@ -475,18 +475,6 @@ function saveDrafts(){
 function loadTargets(){ return loadJSON(LS_TAR, {}); }
 function saveTargets(t){ saveJSON(LS_TAR, t); }
 function targetFor(name){ var t = loadTargets(); var v = parseInt(t[name], 10); return v > 0 ? v : 30; }
-/* Ожидаемый размер подхода: последний введённый подход,
-   иначе средний подход из последней сохранённой записи этого упражнения. */
-function estSetSize(name, sets){
-  if(sets && sets.length) return sets[sets.length - 1];
-  for(var i = records.length - 1; i >= 0; i--){
-    var r = records[i];
-    if(r.exercise !== name) continue;
-    var k = String(r.sets).split('+').length;
-    if(k > 0 && r.total > 0) return r.total / k;
-  }
-  return 0;
-}
 
 /* ==================== ПОМОЩНИКИ ==================== */
 function pad(n){ return String(n).padStart(2, '0'); }
@@ -972,18 +960,13 @@ function renderExercise(){
   var pct = Math.min(100, total * 100 / target);
   document.getElementById('ringFg').style.strokeDashoffset = (326.7 * (1 - pct / 100)).toFixed(1);
 
-  /* Сколько осталось: подходов (если известен размер подхода) или повторений */
+  /* Сколько осталось — всегда точно, в повторениях, без пересчёта в подходы */
   var remReps = Math.max(0, target - total);
-  var size = estSetSize(curEx, curSets);
-  var remSets = (remReps && size) ? Math.ceil(remReps / size) : 0;
   var ringB = document.getElementById('ringLeft');
   var ringSub = document.getElementById('ringSub');
   if(!remReps){
     ringB.textContent = '✓';
     ringSub.textContent = 'цель выполнена';
-  } else if(remSets){
-    ringB.textContent = remSets;
-    ringSub.textContent = plural(remSets, 'подход остался', 'подхода осталось', 'подходов осталось');
   } else {
     ringB.textContent = remReps;
     ringSub.textContent = plural(remReps, 'повторение осталось', 'повторения осталось', 'повторений осталось');
@@ -997,8 +980,8 @@ function renderExercise(){
     pt.textContent = 'Красавчик! На «' + cleanName(curEx) + '» сделано ' + total + ' повторений 💪';
     pt.className = 'progtext good';
   } else {
-    pt.textContent = total + ' из ' + target + ' повт. · осталось ' +
-      (remSets ? remSets + ' ' + plural(remSets, 'подход', 'подхода', 'подходов') : remReps + ' повт.');
+    pt.textContent = total + ' из ' + target + ' · осталось ' + remReps + ' ' +
+      plural(remReps, 'повторение', 'повторения', 'повторений');
     pt.className = 'progtext';
   }
 
