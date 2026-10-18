@@ -1275,16 +1275,33 @@ document.getElementById('btnModalCopy').onclick = function(){
   var ok = legacyCopy(document.getElementById('modalText').value);
   toast(ok ? 'Скопировано ✓' : 'Выдели текст и скопируй вручную');
 };
+var wipeTimer = null;
 document.getElementById('btnWipe').onclick = function(){
-  if(!confirm('Удалить ВСЮ историю тренировок?')) return;
-  if(!confirm('Точно? Это нельзя отменить.')) return;
+  var btn = this;
+  if(!wipeTimer){
+    /* первое нажатие — «взвод» кнопки */
+    btn.textContent = 'Нажми ещё раз — удалить ВСЁ';
+    wipeTimer = setTimeout(function(){
+      wipeTimer = null;
+      btn.textContent = 'Очистить все данные';
+    }, 4000);
+    return;
+  }
+  /* второе нажатие — удаляем, но с возможностью вернуть */
+  clearTimeout(wipeTimer); wipeTimer = null;
+  btn.textContent = 'Очистить все данные';
+  var backupRecords = records, backupDrafts = drafts;
   records = [];
   drafts = {}; saveDrafts();
   lastClearedEx = null;
   saveJSON(LS_SESS, null);
   persist();
-  toast('Данные удалены');
-  show('home');
+  haptic(10);
+  toast('Все данные удалены', { action: 'Вернуть', onAction: function(){
+    records = backupRecords;
+    drafts = backupDrafts; saveDrafts();
+    persist();
+  }});
 };
 document.getElementById('restToggle').onclick = function(){ setRestEnabled(!restEnabled()); };
 document.getElementById('restPlus').onclick = function(){
