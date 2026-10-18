@@ -125,8 +125,6 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .mini.off{color:var(--muted)}
 .mini.danger-mini{color:#fda4af;background:rgba(251,113,133,.08);border-color:rgba(251,113,133,.32)}
 .mini:disabled{opacity:.35;pointer-events:none}
-.quickrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
-.qlabel{font-size:12px;color:var(--muted)}
 #setChips{display:flex;flex-wrap:wrap;gap:8px;min-height:32px;margin-bottom:8px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--grad);color:#03150e;font-weight:800;border-radius:999px;padding:6px 8px 6px 13px;font-size:15px;box-shadow:0 4px 14px -6px rgba(16,185,129,.5)}
 .chipx{appearance:none;-webkit-appearance:none;border:none;cursor:pointer;background:rgba(0,0,0,.18);color:inherit;width:22px;height:22px;border-radius:50%;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
@@ -241,9 +239,12 @@ body.resting #toast{bottom:calc(100px + env(safe-area-inset-bottom))}
       <div class="scell"><b id="stRepsTotal">0</b><span>повторений всего</span></div>
     </div>
     <div class="card" id="resumeCard" style="display:none;border-color:rgba(251,191,36,.45)">
-      <h3 style="margin-top:0;color:var(--amber)">⏸ Незавершённая тренировка</h3>
+      <h3 style="margin-top:0;color:var(--amber)">⏸ Незавершённые тренировки</h3>
       <div id="resumeInfo" class="muted" style="font-size:14px;margin-bottom:12px"></div>
-      <button class="btn primary" id="btnResume">▶️ Продолжить</button>
+      <div class="row">
+        <button class="btn primary" id="btnResume">▶️ Продолжить</button>
+        <button class="btn dangerg" id="btnClearAll">🧹 Очистить всё</button>
+      </div>
     </div>
     <div class="daygrid" id="homeDays"></div>
     <div class="card">
@@ -289,18 +290,9 @@ body.resting #toast{bottom:calc(100px + env(safe-area-inset-bottom))}
         <input type="number" id="repInput" inputmode="numeric" min="1" placeholder="Сколько повторов сделал">
         <button class="btn primary" id="btnAddSet">+ Подход</button>
       </div>
-      <div class="quickrow" id="quickRow">
-        <span class="qlabel">Быстро:</span>
-        <button class="mini" data-rep="5">+5</button>
-        <button class="mini" data-rep="8">+8</button>
-        <button class="mini" data-rep="10">+10</button>
-        <button class="mini" data-rep="12">+12</button>
-        <button class="mini" data-rep="15">+15</button>
-        <button class="mini" data-rep="20">+20</button>
-      </div>
       <div class="ringwrap">
         <svg class="bigring" viewBox="0 0 120 120"><circle class="rbg" cx="60" cy="60" r="52"/><circle class="rfg" id="ringFg" cx="60" cy="60" r="52"/></svg>
-        <div class="ringtxt"><b id="ringPct">0%</b><span id="ringTotal">0 повт.</span></div>
+        <div class="ringtxt"><b id="ringLeft">0</b><span id="ringSub">подходов осталось</span></div>
       </div>
       <div id="progText" class="progtext muted"></div>
     </div>
@@ -483,6 +475,21 @@ function saveDrafts(){
 function loadTargets(){ return loadJSON(LS_TAR, {}); }
 function saveTargets(t){ saveJSON(LS_TAR, t); }
 function targetFor(name){ var t = loadTargets(); var v = parseInt(t[name], 10); return v > 0 ? v : 30; }
+/* Средний размер подхода: сначала текущие подходы, если есть,
+   иначе вся история упражнения. Нужен для счётчика «осталось подходов». */
+function avgSetSize(name, sets){
+  if(sets && sets.length){
+    var t = 0; sets.forEach(function(v){ t += v; });
+    return t / sets.length;
+  }
+  var s = 0, c = 0;
+  records.forEach(function(r){
+    if(r.exercise !== name) return;
+    var k = String(r.sets).split('+').length;
+    if(k > 0){ s += r.total; c += k; }
+  });
+  return c ? s / c : 0;
+}
 
 /* ==================== ПОМОЩНИКИ ==================== */
 function pad(n){ return String(n).padStart(2, '0'); }
@@ -531,6 +538,13 @@ function streak(){
   return n;
 }
 function haptic(p){ if(navigator.vibrate){ try{ navigator.vibrate(p); }catch(e){} } }
+/* Русские склонения: plural(2, 'подход', 'подхода', 'подходов') -> «подхода» */
+function plural(n, one, few, many){
+  var a = n % 10, b = n % 100;
+  if(a === 1 && b !== 11) return one;
+  if(a >= 2 && a <= 4 && (b < 10 || b >= 20)) return few;
+  return many;
+}
 /* Плавный счётчик чисел */
 function animNum(el, to){
   if(!el) return;
@@ -810,7 +824,9 @@ function renderHome(){
         if(draftDays[i].day.id === sess.dayId){ pick = draftDays[i]; break; }
       }
     }
-    document.getElementById('resumeInfo').textContent = pick.day.name + ' · упражнений в процессе: ' + pick.count;
+    var setsCount = 0;
+    pick.day.exercises.forEach(function(n){ setsCount += (drafts[n] || []).length; });
+    document.getElementById('resumeInfo').textContent = pick.day.name + ' · упражнений в процессе: ' + pick.count + ' · подходов: ' + setsCount;
     document.getElementById('btnResume').onclick = function(){ openDay(pick.day); };
   } else {
     rc.style.display = 'none';
@@ -825,8 +841,10 @@ function renderHome(){
     var done = Object.keys(doneSet).length;
     var dcount = 0;
     day.exercises.forEach(function(n){ if((drafts[n] || []).length) dcount++; });
+    var left = day.exercises.length - done;
     var prog = '';
-    if(done) prog += '✓ Выполнено ' + done + ' из ' + day.exercises.length;
+    if(left > 0) prog += 'Осталось ' + left + ' ' + plural(left, 'упражнение', 'упражнения', 'упражнений');
+    else if(done) prog += 'Всё выполнено ✓';
     if(dcount) prog += (prog ? ' · ' : '') + '⏸ ' + dcount + ' в процессе';
     if(!prog) prog = 'Начать тренировку →';
     var pct = done * 100 / day.exercises.length;
@@ -868,9 +886,12 @@ function renderDay(){
   t.forEach(function(r){ (doneMap[r.exercise] = doneMap[r.exercise] || []).push(r); });
   var draftCount = 0;
   curDay.exercises.forEach(function(n){ if((drafts[n] || []).length) draftCount++; });
-  document.getElementById('dayProgress').textContent =
-    'Выполнено сегодня: ' + Object.keys(doneMap).length + ' из ' + curDay.exercises.length +
-    (draftCount ? ' · ⏸ в процессе: ' + draftCount : '');
+  var left = curDay.exercises.length - Object.keys(doneMap).length;
+  var dp = left > 0
+    ? 'Осталось ' + left + ' ' + plural(left, 'упражнение', 'упражнения', 'упражнений') + ' из ' + curDay.exercises.length
+    : 'Все упражнения выполнены 💪';
+  if(draftCount) dp += ' · ⏸ в процессе: ' + draftCount;
+  document.getElementById('dayProgress').textContent = dp;
   document.getElementById('btnClearDay').disabled = !t.length;
   var list = document.getElementById('exList');
   list.innerHTML = '';
@@ -953,19 +974,32 @@ function renderExercise(){
   var total = curSets.reduce(function(s, v){ return s + v; }, 0);
   var pct = Math.min(100, total * 100 / target);
   document.getElementById('ringFg').style.strokeDashoffset = (326.7 * (1 - pct / 100)).toFixed(1);
-  document.getElementById('ringPct').textContent = Math.round(pct) + '%';
-  document.getElementById('ringTotal').textContent = total + ' повт.';
+
+  /* Вместо процентов — сколько подходов осталось до цели.
+     Считаем по среднему размеру подхода (текущие подходы или история). */
+  var remReps = Math.max(0, target - total);
+  var avg = avgSetSize(curEx, curSets);
+  var remSets = remReps ? Math.max(1, Math.ceil(remReps / (avg || 10))) : 0;
+  var ringB = document.getElementById('ringLeft');
+  var ringSub = document.getElementById('ringSub');
+  if(remSets){
+    ringB.textContent = remSets;
+    ringSub.textContent = plural(remSets, 'подход остался', 'подхода осталось', 'подходов осталось');
+  } else {
+    ringB.textContent = '✓';
+    ringSub.textContent = 'цель выполнена';
+  }
 
   var pt = document.getElementById('progText');
-  if(total === 0){ pt.textContent = 'Введи повторы или жми быстрые кнопки'; pt.className = 'progtext muted'; }
+  if(total === 0){ pt.textContent = 'Цель: ' + target + ' повторений — введи повторы и жми «+ Подход»'; pt.className = 'progtext muted'; }
   else if(total >= target){ pt.textContent = 'Красавчик! На «' + cleanName(curEx) + '» сделано ' + total + ' повторений 💪'; pt.className = 'progtext good'; }
-  else { pt.textContent = 'Осталось ' + (target - total) + ' повторений'; pt.className = 'progtext'; }
+  else { pt.textContent = total + ' из ' + target + ' повт. · осталось ' + remSets + ' ' + plural(remSets, 'подход', 'подхода', 'подходов'); pt.className = 'progtext'; }
 
   document.getElementById('btnSaveEx').disabled = curSets.length === 0;
   document.getElementById('btnClearEx').disabled = curSets.length === 0;
 }
 
-/* Добавление подхода (из поля ввода или быстрых кнопок) */
+/* Добавление подхода из поля ввода */
 function commitSet(v){
   v = parseInt(v, 10);
   if(!v || v <= 0){ toast('Введи число больше 0'); return; }
@@ -1242,6 +1276,30 @@ function clearDayRecords(){
   clearRecords(function(r){ return r.date === fmtDate(new Date()) && r.day === curDay.name; }, 'В этом дне сегодня нет записей');
 }
 
+/* 4. Общая кнопка «Очистить всё»: убирает ВСЕ незаконченные тренировки
+   (черновики подходов во всех днях). Сохранённый журнал не трогает. */
+function clearAllDrafts(){
+  var backup = {}, count = 0;
+  Object.keys(drafts).forEach(function(k){
+    if(drafts[k] && drafts[k].length){ backup[k] = drafts[k].slice(); count += drafts[k].length; }
+  });
+  if(!count){ toast('Незаконченных тренировок нет 👌'); return; }
+  drafts = {};
+  saveDrafts();
+  curSets = [];            /* если открыт черновик — сбрасываем и его */
+  lastClearedEx = null;
+  saveJSON(LS_SESS, null); /* чтобы «Продолжить» не вело в пустой день */
+  persist();
+  show('home');
+  haptic(12);
+  toast('Убрано ' + count + ' ' + plural(count, 'подход', 'подхода', 'подходов'), {
+    action: 'Вернуть',
+    onAction: function(){
+      drafts = backup; saveDrafts(); persist();
+    }
+  });
+}
+
 /* ==================== ПРИВЯЗКА КНОПОК ==================== */
 document.getElementById('btnCopy').onclick = function(){ doCopy(false); };
 document.getElementById('btnCopyDay').onclick = function(){ doCopy(false); };
@@ -1259,6 +1317,7 @@ document.getElementById('btnSaveEx').onclick = saveExercise;
 document.getElementById('btnClearToday').onclick = clearTodayRecords;
 document.getElementById('btnClearDay').onclick = clearDayRecords;
 document.getElementById('btnClearEx').onclick = clearExSets;
+document.getElementById('btnClearAll').onclick = clearAllDrafts;
 document.getElementById('repInput').addEventListener('keydown', function(e){
   if(e.key === 'Enter'){ e.preventDefault(); addSet(); }
 });
@@ -1267,41 +1326,21 @@ document.getElementById('targetInput').addEventListener('input', function(){
   var v = parseInt(this.value, 10);
   if(v > 0){ var t = loadTargets(); t[curEx] = v; saveTargets(t); renderExercise(); }
 });
-document.querySelectorAll('#quickRow .mini').forEach(function(b){
-  b.onclick = function(){ commitSet(parseInt(b.dataset.rep, 10)); };
-});
 document.getElementById('btnCloseModal').onclick = closeModal;
 document.getElementById('btnModalCopy').onclick = function(){
   var ok = legacyCopy(document.getElementById('modalText').value);
   toast(ok ? 'Скопировано ✓' : 'Выдели текст и скопируй вручную');
 };
-var wipeTimer = null;
 document.getElementById('btnWipe').onclick = function(){
-  var btn = this;
-  if(!wipeTimer){
-    /* первое нажатие — «взвод» кнопки */
-    btn.textContent = 'Нажми ещё раз — удалить ВСЁ';
-    wipeTimer = setTimeout(function(){
-      wipeTimer = null;
-      btn.textContent = 'Очистить все данные';
-    }, 4000);
-    return;
-  }
-  /* второе нажатие — удаляем, но с возможностью вернуть */
-  clearTimeout(wipeTimer); wipeTimer = null;
-  btn.textContent = 'Очистить все данные';
-  var backupRecords = records, backupDrafts = drafts;
+  if(!confirm('Удалить ВСЮ историю тренировок?')) return;
+  if(!confirm('Точно? Это нельзя отменить.')) return;
   records = [];
   drafts = {}; saveDrafts();
   lastClearedEx = null;
   saveJSON(LS_SESS, null);
   persist();
-  haptic(10);
-  toast('Все данные удалены', { action: 'Вернуть', onAction: function(){
-    records = backupRecords;
-    drafts = backupDrafts; saveDrafts();
-    persist();
-  }});
+  toast('Данные удалены');
+  show('home');
 };
 document.getElementById('restToggle').onclick = function(){ setRestEnabled(!restEnabled()); };
 document.getElementById('restPlus').onclick = function(){
